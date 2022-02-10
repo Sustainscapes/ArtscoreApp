@@ -44,15 +44,23 @@ ui <- fluidPage(
 
         # 3 Filtered
         mainPanel(
-          h2("Artscore"),
-          tableOutput("Table3"),
-          h2("Strukturindeks"),
-          textOutput("Structureindeks2"),
-          h2("Naturtilstandindeks"),
-          textOutput("Naturtilstandindeks")
+          shiny::tabsetPanel(
+            shiny::tabPanel("Results",
+                            
+            h2("Artscore"),
+            tableOutput("Table3"),
+            h2("Strukturindeks"),
+            textOutput("Structureindeks2"),
+            h2("Naturtilstandindeks"),
+            textOutput("Naturtilstandindeks")
+          ),
+          shiny::tabPanel("Possible Species",
+                          dataTableOutput("AllSpecies")),
+          shiny::tabPanel("Possible habitats",
+                          dataTableOutput("AllHabitats"))
         )
     )
-)
+))
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
@@ -198,6 +206,9 @@ server <- function(input, output) {
   output$Structureindeks2 <- renderText(round(Struktureindeks(), 2))
   
   output$Naturtilstandindeks <- renderText(round(Naturtilstandindeks(Artscore = Table2()$Artsindex, Strukturindeks = Struktureindeks()), 2))
+  
+  output$AllSpecies <- renderDataTable(Species_List)
+  output$AllHabitats <- renderDataTable(Habitat_List)
 }
 
 # Run the application 
