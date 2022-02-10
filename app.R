@@ -36,16 +36,20 @@ ui <- fluidPage(
             selectInput("Habs", label = h3("Input habitat code or name"), 
                         choices = list("Habitat code" = 1, "Habitat name" = 2), 
                         selected = 1),
-            uiOutput("SelectHab")
+            uiOutput("SelectHab"),
+            h2("Structure index variables"),
+            uiOutput("Structure")
             
         ),
 
         # 3 Filtered
         mainPanel(
-          h2("Artsindex"),
-          tableOutput("Table2"),
+          h2("Artscore"),
+          tableOutput("Table3"),
           h2("Strukturindeks"),
-          uiOutput("Structure")
+          textOutput("Structureindeks2"),
+          h2("Naturtilstandindeks"),
+          textOutput("Naturtilstandindeks")
         )
     )
 )
@@ -118,7 +122,7 @@ server <- function(input, output) {
     
     
     
-  output$Table2 <- renderTable(digits = 3, {
+  Table2 <- reactive({
     if(!is.na(unique(Table1()[[1]]$ScientificName)) & !is.na(Table1()[[2]]$Habitat_code)){
       Artscore(ScientificName = Table1()[[1]]$ScientificName,
                Habitat_code = Table1()[[2]]$Habitat_code)
@@ -138,28 +142,62 @@ server <- function(input, output) {
       #         Habitat_name = ifelse(is.na(Table1()[[2]]$Habitat_name), NULL, Table1()[[2]]$Habitat_name), Habitat_code = ifelse(is.na(Table1()[[2]]$Habitat_code), NULL, Table1()[[2]]$Habitat_code))  
     })
   
-  output$Structure <- renderUI({
+  output$Table3 <- renderTable(digits = 3, 
+                               Table2())
+  
+  
+  Subs <- reactive({
     if(!is.na(Table1()[[2]]$Habitat_code)){
       Tab <- GetWeights(Habitat_code = Table1()[[2]]$Habitat_code)
     } else if(!is.na(Table1()[[2]]$Habitat_name)){
       Tab <- GetWeights(Habitat_name = Table1()[[2]]$Habitat_name)
     }
     
-    Subs <- unique(Tab$Subvariables)
+    Tab
+  })
+  
+  output$Variables <- renderText({
+    unique(Subs()$Subvariables)
+  })
+  
+  output$Structure <- renderUI({
+    
+    Vars <- unique(Subs()$Subvariables)
     
     Radios <- list()
-      for(i in 1:length(Subs)){
-        Options <- Tab %>% 
-          dplyr::filter(Subvariables == Subs[i]) %>% 
+      for(i in 1:length(Vars)){
+        Options <- Subs() %>% 
+          dplyr::filter(Subvariables == Vars[i]) %>% 
           pull(Scores)
-        Radios[[i]] <- radioButtons(inputId = paste0("Radio1", i),
-                                    label = Subs[i],
+        Radios[[i]] <- radioButtons(inputId = paste0("Radio", i),
+                                    label = Vars[i],
                                     choices = Options,
                                     selected = character(0))
       }
   
     Radios
   })
+  
+  Struktureindeks <- reactive({
+    Vars <- unique(Subs()$Subvariables)
+    Results <- list()
+    for(i in 1:length(Subs())){
+      ForScores <- Subs() %>%
+        dplyr::filter(Subvariables == Vars[i])
+      
+      Results[[i]] <- ForScores[ForScores$Scores == input[[paste0("Radio", i)]],]
+    }
+    Results <- do.call("rbind", Results)
+    
+    Scores <- sum(Results$Weight * Results$Subweights * Results$Values)
+    Weights <- sum(Results$Weight * Results$Subweights)
+    Index <- Scores/(Weights*100)
+    Index
+  })
+  
+  output$Structureindeks2 <- renderText(round(Struktureindeks(), 2))
+  
+  output$Naturtilstandindeks <- renderText(round(Naturtilstandindeks(Artscore = Table2()$Artsindex, Strukturindeks = Struktureindeks()), 2))
 }
 
 # Run the application 
